@@ -1,0 +1,28 @@
+# LORD game files (not distributed — obtain separately)
+*.EXE
+*.OVR
+*.COM
+LORD.DAT
+LORD.DAT.bak
+PLAYER.DAT
+PLAYER.BAK
+LENEMY.DAT
+LGAMETXT.DAT
+LORDEXT.DAT
+LORDTXT.DAT
+LORDRIP.DAT
+PLAYEXT.DAT
+3RDPARTY.DAT
+TIME.DAT
+
+# Per-node runtime files
+NODE*/DOOR.SYS
+NODE*/RUN*.BAT
+NODE*/DBG.TXT
+
+# Logs
+*.log
+*.log.gz
+
+# dosemu runtime
+/tmp/
