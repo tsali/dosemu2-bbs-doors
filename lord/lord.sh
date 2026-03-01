@@ -16,11 +16,9 @@ DROPFILE="$MYSTIC_TEMP/DOOR.SYS"
 LOCALDIR="/tmp/dosemu-node${NODE}"
 LOGFILE="/tmp/lord-node${NODE}-$(date +%s).log"
 
-echo "[lord.sh] start node=$NODE dropfile=$DROPFILE" >> "$LOGFILE"
-
 # --- Verify drop file ---
 if [ ! -f "$DROPFILE" ]; then
-    echo "ERROR: No DOOR.SYS found at $DROPFILE" | tee -a "$LOGFILE"
+    echo "ERROR: No DOOR.SYS found at $DROPFILE"
     sleep 3
     exit 1
 fi
@@ -37,14 +35,12 @@ awk 'NR==18 && $0+0 > 32000 { printf "32000\r\n"; next }
      NR==19 && $0+0 > 500   { printf "500\r\n"; next }
      /^$/ { printf "NONE\r\n"; next }
      { gsub(/\r$/,""); printf "%s\r\n", $0 }' "$DROPFILE" > "$NODEDIR/DOOR.SYS"
-echo "[lord.sh] drop file copied to NODE${NODE}" >> "$LOGFILE"
 
 # --- Generate per-call random batch file with CRLF line endings ---
 RAND=$(tr -dc a-f0-9 2>/dev/null </dev/urandom | head -c 4)
 BATFILE="RUN${RAND}.BAT"
 BATPATH="$NODEDIR/$BATFILE"
 printf "C:\r\nCD \\LORD\r\nCALL START.BAT %s\r\nEXITEMU\r\n" "$NODE" > "$BATPATH"
-echo "[lord.sh] batch file: $BATFILE" >> "$LOGFILE"
 
 # --- Per-node dosemu2 local directory and config ---
 mkdir -p "$LOCALDIR"
@@ -59,14 +55,22 @@ cat > "$LOCALDIR/dosemurc" << DOSEMURC
 \$_hdimage = "$CDIR +1"
 DOSEMURC
 
-echo "[lord.sh] dosemurc written" >> "$LOGFILE"
-
 # --- Terminal setup ---
 stty cols 80 rows 25 2>/dev/null || true
 export TERM="xterm"
 export HOME="/home/tsali"
 
-# --- Launch dosemu2 with COM1 virtual, video to /dev/null ---
+# --- Prevent ^C from sending SIGINT to dosemu during boot ---
+# dosemu virtual COM1 sets the PTY to mostly-raw mode but leaves isig on,
+# so intr=^C still generates SIGINT. We disable it before start, then
+# re-apply 1s later (after dosemu's serial init re-enables it).
+# dosemu MUST run in the foreground — bash redirects stdin of background
+# jobs to /dev/null, breaking "FD 0 is not a tty" virtual COM check.
+stty -isig 2>/dev/null || true
+( sleep 1; stty -isig 2>/dev/null ) &
+ISIG_PID=$!
+
+# --- Launch dosemu2 in foreground with COM1 virtual, video to /dev/null ---
 dosemu \
     --Flocal_dir "$LOCALDIR" \
     -E "C:\\NODE${NODE}\\$BATFILE" \
@@ -74,8 +78,8 @@ dosemu \
     1>/dev/null \
     2>>"$LOGFILE"
 
-DOSEMU_EXIT=$?
-echo "[lord.sh] dosemu2 exited: $DOSEMU_EXIT" >> "$LOGFILE"
+kill "$ISIG_PID" 2>/dev/null
+wait "$ISIG_PID" 2>/dev/null
 
 # --- Cleanup ---
 rm -f "$BATPATH"

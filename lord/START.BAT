@@ -1,5 +1,5 @@
 @ECHO OFF
-REM LORD startup for dosemu2 — COM1 virtual mode (no FOSSIL)
+REM LORD startup for dosemu2 - COM1 virtual mode (no FOSSIL)
 
 IF "%1" == "" GOTO NOSTART
 
